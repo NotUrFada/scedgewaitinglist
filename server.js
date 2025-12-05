@@ -75,18 +75,103 @@ const saveEmails = (emails) => {
 
 // Routes
 
-// Root route
+// Root route - show API info or simple email viewer
 app.get('/', (req, res) => {
-  res.json({
-    message: 'Scedge Waitlist API',
-    version: '1.0.0',
-    endpoints: {
-      'GET /api/waitlist': 'Get all waitlist emails',
-      'POST /api/waitlist': 'Add a new email to waitlist',
-      'DELETE /api/waitlist': 'Clear all waitlist emails',
-      'GET /api/health': 'Health check endpoint'
+  // If query parameter ?view=emails, show HTML viewer
+  if (req.query.view === 'emails') {
+    try {
+      const emails = loadEmails();
+      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Scedge Waitlist - Email Viewer</title>
+  <style>
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0a0a; 
+      color: #fff; 
+      padding: 40px; 
+      max-width: 1200px; 
+      margin: 0 auto;
     }
-  });
+    h1 { margin-bottom: 30px; }
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      background: #1a1a1a;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th { 
+      background: #2a2a2a; 
+      padding: 15px; 
+      text-align: left;
+      font-weight: 600;
+    }
+    td { 
+      padding: 15px; 
+      border-top: 1px solid #2a2a2a;
+    }
+    tr:hover { background: #252525; }
+    .count { color: #888; margin-bottom: 20px; }
+    .refresh { 
+      background: #fff; 
+      color: #000; 
+      border: none; 
+      padding: 10px 20px; 
+      border-radius: 6px; 
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+    .refresh:hover { background: #e0e0e0; }
+  </style>
+</head>
+<body>
+  <h1>📧 Scedge Waitlist Emails</h1>
+  <div class="count">Total: ${emails.length} emails</div>
+  <button class="refresh" onclick="location.reload()">🔄 Refresh</button>
+  <table>
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Date</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${emails.length === 0 
+        ? '<tr><td colspan="3" style="text-align: center; padding: 40px; color: #888;">No emails yet</td></tr>'
+        : emails.map(e => `
+          <tr>
+            <td>${e.email}</td>
+            <td>${new Date(e.timestamp).toLocaleDateString()}</td>
+            <td>${new Date(e.timestamp).toLocaleTimeString()}</td>
+          </tr>
+        `).join('')
+      }
+    </tbody>
+  </table>
+</body>
+</html>`;
+      res.send(html);
+    } catch (error) {
+      res.status(500).send('<h1>Error loading emails</h1>');
+    }
+  } else {
+    // Default: show API info
+    res.json({
+      message: 'Scedge Waitlist API',
+      version: '1.0.0',
+      endpoints: {
+        'GET /api/waitlist': 'Get all waitlist emails',
+        'POST /api/waitlist': 'Add a new email to waitlist',
+        'DELETE /api/waitlist': 'Clear all waitlist emails',
+        'GET /api/health': 'Health check endpoint',
+        'GET /?view=emails': 'View emails in browser (HTML)'
+      }
+    });
+  }
 });
 
 // GET all emails
