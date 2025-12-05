@@ -11,11 +11,37 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const DATA_FILE = join(__dirname, 'waitlist-data.json');
 
-// Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || '*', // Allow all origins in production, or specify your frontend URL
+// CORS configuration - allow Vercel URLs and any explicitly set frontend URL
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow all Vercel URLs (production and preview)
+    if (origin.includes('vercel.app')) {
+      return callback(null, true);
+    }
+    
+    // Allow explicit frontend URL if set
+    if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
+      return callback(null, true);
+    }
+    
+    // In development, allow localhost
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+    
+    // Allow all origins for now (can be restricted later)
+    // Log for debugging
+    console.log('✅ Allowing CORS for origin:', origin);
+    callback(null, true);
+  },
   credentials: true
-}));
+};
+
+// Middleware
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Initialize data file if it doesn't exist
