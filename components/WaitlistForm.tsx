@@ -14,7 +14,8 @@ interface Particle {
 
 const WaitlistForm: React.FC<WaitlistFormProps> = ({ className }) => {
   const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const [particles, setParticles] = useState<Particle[]>([]);
 
   const generateParticles = () => {
@@ -37,6 +38,7 @@ const WaitlistForm: React.FC<WaitlistFormProps> = ({ className }) => {
     if (!email) return;
 
     setStatus('loading');
+    setErrorMessage('');
     
     try {
       await saveEmail(email);
@@ -45,7 +47,14 @@ const WaitlistForm: React.FC<WaitlistFormProps> = ({ className }) => {
       setEmail('');
     } catch (error) {
       console.error("Failed to save email", error);
-      setStatus('idle');
+      setStatus('error');
+      const message = error instanceof Error ? error.message : 'Failed to connect to server. Please try again.';
+      setErrorMessage(message);
+      // Reset to idle after 5 seconds
+      setTimeout(() => {
+        setStatus('idle');
+        setErrorMessage('');
+      }, 5000);
     }
   };
 
@@ -108,7 +117,11 @@ const WaitlistForm: React.FC<WaitlistFormProps> = ({ className }) => {
             </button>
           </div>
           <p className="mt-4 text-[10px] uppercase tracking-widest text-neutral-600 text-center sm:text-left h-4">
-            Beta Access Q4 2025
+            {errorMessage ? (
+              <span className="text-red-400 normal-case">{errorMessage}</span>
+            ) : (
+              'Beta Access Q4 2025'
+            )}
           </p>
         </form>
       )}

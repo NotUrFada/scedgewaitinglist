@@ -5,11 +5,30 @@ export interface WaitlistEntry {
   timestamp: number;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// Get API URL from environment or use default
+const getApiUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) {
+    // Ensure it doesn't end with /api (we add that below)
+    return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+  }
+  // Default to localhost for development
+  return 'http://localhost:3001/api';
+};
+
+const API_BASE_URL = getApiUrl();
+
+// Log API URL in development (helps with debugging)
+if (import.meta.env.DEV) {
+  console.log('🔗 API Base URL:', API_BASE_URL);
+}
 
 export const saveEmail = async (email: string): Promise<void> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/waitlist`, {
+    const url = `${API_BASE_URL}/waitlist`;
+    console.log('📤 Saving email to:', url);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -20,25 +39,43 @@ export const saveEmail = async (email: string): Promise<void> => {
     if (!response.ok) {
       if (response.status === 409) {
         // Email already exists - treat as success
+        console.log('✅ Email already exists');
         return;
       }
-      throw new Error(`Failed to save email: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('❌ Backend error:', response.status, errorText);
+      throw new Error(`Failed to save email: ${response.status} ${response.statusText}`);
     }
+    
+    const data = await response.json();
+    console.log('✅ Email saved successfully:', data);
   } catch (error) {
-    console.error('Error saving email to backend:', error);
+    console.error('❌ Error saving email to backend:', error);
+    // If it's a network error, provide more helpful message
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error(`Cannot connect to backend API. Please check that the backend is running at ${API_BASE_URL}`);
+    }
     throw error;
   }
 };
 
 export const getEmails = async (): Promise<WaitlistEntry[]> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/waitlist`);
+    const url = `${API_BASE_URL}/waitlist`;
+    console.log('📥 Fetching emails from:', url);
+    
+    const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`Failed to fetch emails: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('❌ Backend error:', response.status, errorText);
+      throw new Error(`Failed to fetch emails: ${response.status} ${response.statusText}`);
     }
-    return await response.json();
+    const data = await response.json();
+    console.log('✅ Fetched emails:', data.length);
+    return data;
   } catch (error) {
-    console.error('Error fetching emails from backend:', error);
+    console.error('❌ Error fetching emails from backend:', error);
+    // Return empty array on error so UI doesn't break
     return [];
   }
 };
