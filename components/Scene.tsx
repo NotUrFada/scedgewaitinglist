@@ -61,18 +61,24 @@ const MinimalParticles = () => {
 };
 
 const Scene = () => {
-  return (
-    <div className="fixed inset-0 z-0 bg-[#050505]">
-      <Canvas gl={{ antialias: true, alpha: true }}>
-        <PerspectiveCamera makeDefault position={[0, 0, 14]} fov={45} />
-        
-        <MinimalParticles />
-        
-        {/* Subtle fog for depth fade */}
-        <fog attach="fog" args={['#050505', 10, 25]} />
-      </Canvas>
-    </div>
-  );
+  try {
+    return (
+      <div className="fixed inset-0 z-0 bg-[#050505]">
+        <Canvas gl={{ antialias: true, alpha: true }}>
+          <PerspectiveCamera makeDefault position={[0, 0, 14]} fov={45} />
+          
+          <MinimalParticles />
+          
+          {/* Subtle fog for depth fade */}
+          <fog attach="fog" args={['#050505', 10, 25]} />
+        </Canvas>
+      </div>
+    );
+  } catch (error) {
+    console.error('Scene rendering error:', error);
+    // Fallback to simple background if 3D fails
+    return <div className="fixed inset-0 z-0 bg-[#050505]" />;
+  }
 };
 
 export default Scene;

@@ -8,8 +8,23 @@ if (!rootElement) {
 }
 
 const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+
+// Error boundary for better error handling
+try {
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+} catch (error) {
+  console.error('Failed to render app:', error);
+  rootElement.innerHTML = `
+    <div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: #050505; color: #fff; font-family: sans-serif;">
+      <div style="text-align: center;">
+        <h1 style="margin-bottom: 1rem;">Error Loading App</h1>
+        <p style="color: #999;">${error instanceof Error ? error.message : 'Unknown error'}</p>
+        <p style="color: #666; margin-top: 1rem; font-size: 0.875rem;">Check the console for details</p>
+      </div>
+    </div>
+  `;
+}
