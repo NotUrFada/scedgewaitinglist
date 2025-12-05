@@ -22,6 +22,13 @@ const API_BASE_URL = getApiUrl();
 console.log('🔗 API Base URL:', API_BASE_URL);
 console.log('🔗 VITE_API_URL env:', import.meta.env.VITE_API_URL || 'NOT SET');
 
+// Check if we're in production and using localhost (which won't work)
+if (typeof window !== 'undefined' && !import.meta.env.DEV) {
+  if (API_BASE_URL.includes('localhost') || API_BASE_URL.includes('127.0.0.1')) {
+    console.error('⚠️ WARNING: API URL is set to localhost in production! Set VITE_API_URL in Vercel to: https://scedge-backend.onrender.com/api');
+  }
+}
+
 export const saveEmail = async (email: string): Promise<void> => {
   try {
     const url = `${API_BASE_URL}/waitlist`;
@@ -74,8 +81,11 @@ export const getEmails = async (): Promise<WaitlistEntry[]> => {
     return data;
   } catch (error) {
     console.error('❌ Error fetching emails from backend:', error);
-    // Return empty array on error so UI doesn't break
-    return [];
+    // Re-throw the error so the UI can show it
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error(`Cannot connect to backend. Check that VITE_API_URL is set to: https://scedge-backend.onrender.com/api`);
+    }
+    throw error;
   }
 };
 

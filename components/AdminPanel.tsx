@@ -12,14 +12,18 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   const [entries, setEntries] = useState<WaitlistEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadEmails = async () => {
     setLoading(true);
+    setError(null);
     try {
       const emails = await getEmails();
       setEntries(emails);
     } catch (error) {
       console.error('Failed to load emails:', error);
+      const message = error instanceof Error ? error.message : 'Failed to load emails';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -100,6 +104,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
             <div className="p-12 text-center text-neutral-600 font-light flex items-center justify-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" />
               Loading emails...
+            </div>
+          ) : error ? (
+            <div className="p-12 text-center">
+              <div className="text-red-400 font-light mb-2">{error}</div>
+              <button
+                onClick={loadEmails}
+                className="mt-4 px-4 py-2 text-xs text-white border border-white/20 hover:bg-white/10 rounded transition-colors uppercase tracking-wider"
+              >
+                Retry
+              </button>
             </div>
           ) : entries.length === 0 ? (
             <div className="p-12 text-center text-neutral-600 font-light">
