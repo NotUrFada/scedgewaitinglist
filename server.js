@@ -49,6 +49,20 @@ const saveEmails = (emails) => {
 
 // Routes
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Scedge Waitlist API',
+    version: '1.0.0',
+    endpoints: {
+      'GET /api/waitlist': 'Get all waitlist emails',
+      'POST /api/waitlist': 'Add a new email to waitlist',
+      'DELETE /api/waitlist': 'Clear all waitlist emails',
+      'GET /api/health': 'Health check endpoint'
+    }
+  });
+});
+
 // GET all emails
 app.get('/api/waitlist', (req, res) => {
   try {
