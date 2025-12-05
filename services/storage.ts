@@ -8,11 +8,24 @@ export interface WaitlistEntry {
 // Get API URL from environment or use default
 const getApiUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
+  
   if (envUrl) {
-    // Ensure it doesn't end with /api (we add that below)
-    return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`;
+    // If it already ends with /api, use it as-is
+    if (envUrl.endsWith('/api')) {
+      return envUrl;
+    }
+    // If it doesn't end with /api, add it
+    return `${envUrl}/api`;
   }
-  // Default to localhost for development
+  
+  // In production, default to the deployed backend
+  // In development, use localhost
+  if (typeof window !== 'undefined' && !import.meta.env.DEV) {
+    // Production fallback - use the deployed backend
+    return 'https://scedge-backend.onrender.com/api';
+  }
+  
+  // Development default
   return 'http://localhost:3001/api';
 };
 
