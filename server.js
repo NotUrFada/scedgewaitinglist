@@ -3,6 +3,7 @@ import cors from 'cors';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { db } from './services/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -10,6 +11,10 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 const DATA_FILE = join(__dirname, 'waitlist-data.json');
+
+// Check if using Supabase or file storage
+const useSupabase = db.isConfigured();
+console.log(useSupabase ? '✅ Using Supabase database' : '📁 Using file storage (fallback)');
 
 // CORS configuration - allow Vercel URLs and any explicitly set frontend URL
 const corsOptions = {
@@ -75,12 +80,21 @@ const saveEmails = (emails) => {
 
 // Routes
 
+// Helper function to get emails (from Supabase or file)
+const getEmailsData = async () => {
+  if (useSupabase) {
+    return await db.getEmails();
+  } else {
+    return loadEmails();
+  }
+};
+
 // Root route - show API info or simple email viewer
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
   // If query parameter ?view=emails, show HTML viewer
   if (req.query.view === 'emails') {
     try {
-      const emails = loadEmails();
+      const emails = await getEmailsData();
       const html = `
 <!DOCTYPE html>
 <html>
@@ -175,17 +189,18 @@ app.get('/', (req, res) => {
 });
 
 // GET all emails
-app.get('/api/waitlist', (req, res) => {
+app.get('/api/waitlist', async (req, res) => {
   try {
-    const emails = loadEmails();
+    const emails = await getEmailsData();
     res.json(emails);
   } catch (error) {
+    console.error('Error fetching emails:', error);
     res.status(500).json({ error: 'Failed to load emails' });
   }
 });
 
 // POST new email
-app.post('/api/waitlist', (req, res) => {
+app.post('/api/waitlist', async (req, res) => {
   try {
     const { email } = req.body;
     
@@ -193,23 +208,37 @@ app.post('/api/waitlist', (req, res) => {
       return res.status(400).json({ error: 'Valid email is required' });
     }
 
-    const emails = loadEmails();
-    
-    // Check for duplicates
-    if (emails.some(e => e.email.toLowerCase() === email.toLowerCase())) {
-      return res.status(409).json({ error: 'Email already exists' });
+    if (useSupabase) {
+      // Use Supabase
+      try {
+        const newEntry = await db.addEmail(email);
+        res.status(201).json(newEntry);
+      } catch (error) {
+        if (error.message === 'Email already exists') {
+          return res.status(409).json({ error: 'Email already exists' });
+        }
+        throw error;
+      }
+    } else {
+      // Use file storage (fallback)
+      const emails = loadEmails();
+      
+      // Check for duplicates
+      if (emails.some(e => e.email.toLowerCase() === email.toLowerCase())) {
+        return res.status(409).json({ error: 'Email already exists' });
+      }
+
+      const newEntry = {
+        id: crypto.randomUUID(),
+        email: email.trim(),
+        timestamp: Date.now(),
+      };
+
+      emails.unshift(newEntry); // Add to beginning
+      saveEmails(emails);
+
+      res.status(201).json(newEntry);
     }
-
-    const newEntry = {
-      id: crypto.randomUUID(),
-      email: email.trim(),
-      timestamp: Date.now(),
-    };
-
-    emails.unshift(newEntry); // Add to beginning
-    saveEmails(emails);
-
-    res.status(201).json(newEntry);
   } catch (error) {
     console.error('Error saving email:', error);
     res.status(500).json({ error: 'Failed to save email' });
@@ -217,11 +246,16 @@ app.post('/api/waitlist', (req, res) => {
 });
 
 // DELETE all emails
-app.delete('/api/waitlist', (req, res) => {
+app.delete('/api/waitlist', async (req, res) => {
   try {
-    saveEmails([]);
+    if (useSupabase) {
+      await db.clearEmails();
+    } else {
+      saveEmails([]);
+    }
     res.json({ message: 'All emails cleared' });
   } catch (error) {
+    console.error('Error clearing emails:', error);
     res.status(500).json({ error: 'Failed to clear emails' });
   }
 });
@@ -235,5 +269,10 @@ app.listen(PORT, () => {
   console.log(`🚀 Backend server running on port ${PORT}`);
   console.log(`📧 Waitlist API: /api/waitlist`);
   console.log(`🌐 CORS origin: ${process.env.FRONTEND_URL || '* (all origins)'}`);
+  if (useSupabase) {
+    console.log(`💾 Database: Supabase`);
+  } else {
+    console.log(`💾 Database: File storage (set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to use Supabase)`);
+  }
 });
 
