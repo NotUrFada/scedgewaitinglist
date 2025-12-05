@@ -22,14 +22,9 @@
 ## Step 3: Get API Keys (1 min)
 
 1. Click **Settings** (gear icon) → **API**
-2. You'll see a section called **"Project API keys"**
-3. Copy these two values:
-   - **Project URL**: At the top, under "Project URL" (looks like: `https://xxxxx.supabase.co`)
-   - **service_role key**: 
-     - Look for the key labeled **"service_role"** (it's secret, shown in red/orange)
-     - If you see "Reveal" or an eye icon, click it to show the key
-     - It's a long string starting with `eyJ...`
-     - ⚠️ **Important**: Use the `service_role` key, NOT the `anon` key!
+2. Copy these two values:
+   - **Project URL** (looks like: `https://xxxxx.supabase.co`)
+   - **service_role key** (the long string starting with `eyJ...`)
 
 ## Step 4: Add to Render (1 min)
 
