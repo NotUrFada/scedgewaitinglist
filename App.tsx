@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import Scene from './components/Scene';
 import WaitlistForm from './components/WaitlistForm';
-import Personalize from './components/Personalize';
 import FeatureCard from './components/FeatureCard';
 import AdminPanel from './components/AdminPanel';
 import { Clock, Network, Zap, Lock } from 'lucide-react';
@@ -45,9 +44,6 @@ const App = () => {
             <div className="max-w-sm mb-16">
               <WaitlistForm />
             </div>
-
-             {/* Personalization Section embedded cleanly */}
-             <Personalize />
           </div>
 
           {/* Right Column: Features (Vertical list) */}

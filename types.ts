@@ -9,7 +9,3 @@ export interface FeatureProps {
 export interface WaitlistFormProps {
   className?: string;
 }
-
-export interface PersonalizedPitchProps {
-  className?: string;
-}
