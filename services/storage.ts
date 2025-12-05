@@ -18,10 +18,9 @@ const getApiUrl = () => {
 
 const API_BASE_URL = getApiUrl();
 
-// Log API URL in development (helps with debugging)
-if (import.meta.env.DEV) {
-  console.log('🔗 API Base URL:', API_BASE_URL);
-}
+// Log API URL (helps with debugging in both dev and production)
+console.log('🔗 API Base URL:', API_BASE_URL);
+console.log('🔗 VITE_API_URL env:', import.meta.env.VITE_API_URL || 'NOT SET');
 
 export const saveEmail = async (email: string): Promise<void> => {
   try {

@@ -121,7 +121,8 @@ app.get('/api/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Backend server running on http://localhost:${PORT}`);
-  console.log(`📧 Waitlist API: http://localhost:${PORT}/api/waitlist`);
+  console.log(`🚀 Backend server running on port ${PORT}`);
+  console.log(`📧 Waitlist API: /api/waitlist`);
+  console.log(`🌐 CORS origin: ${process.env.FRONTEND_URL || '* (all origins)'}`);
 });
 
