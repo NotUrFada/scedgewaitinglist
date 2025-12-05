@@ -1,9 +1,12 @@
 import express from 'express';
 import cors from 'cors';
+import multer from 'multer';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { db } from './services/db.js';
+import { storage } from './services/storage.js';
+import { ai } from './services/ai.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -48,6 +51,15 @@ const corsOptions = {
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Configure multer for file uploads (memory storage)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
 
 // Initialize data file if it doesn't exist
 const initializeDataFile = () => {
@@ -182,7 +194,13 @@ app.get('/', async (req, res) => {
         'POST /api/waitlist': 'Add a new email to waitlist',
         'DELETE /api/waitlist': 'Clear all waitlist emails',
         'GET /api/health': 'Health check endpoint',
-        'GET /?view=emails': 'View emails in browser (HTML)'
+        'GET /?view=emails': 'View emails in browser (HTML)',
+        'POST /api/upload': 'Upload file to cloud storage',
+        'GET /api/files/:bucket': 'List files in bucket',
+        'DELETE /api/files/:bucket/*': 'Delete file from storage',
+        'POST /api/ai/value-proposition': 'Generate AI value proposition',
+        'POST /api/ai/analyze': 'Analyze content with AI',
+        'POST /api/ai/insights': 'Generate insights from data'
       }
     });
   }
@@ -262,7 +280,155 @@ app.delete('/api/waitlist', async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: Date.now() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: Date.now(),
+    services: {
+      database: useSupabase ? 'Supabase' : 'File storage',
+      cloudStorage: storage.isConfigured() ? 'Supabase Storage' : 'Not configured',
+      ai: ai.isConfigured() ? 'OpenAI' : 'Not configured'
+    }
+  });
+});
+
+// ==================== Cloud Storage Endpoints ====================
+
+// Upload file
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    if (!storage.isConfigured()) {
+      return res.status(503).json({ error: 'Cloud storage not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY' });
+    }
+
+    const { bucket = 'uploads', folder = '' } = req.body;
+    const fileName = `${folder ? folder + '/' : ''}${Date.now()}-${req.file.originalname}`;
+
+    const result = await storage.uploadFile(
+      bucket,
+      fileName,
+      req.file.buffer,
+      req.file.mimetype
+    );
+
+    res.json({
+      success: true,
+      path: result.path,
+      url: result.url,
+      fileName: req.file.originalname,
+      size: req.file.size
+    });
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    res.status(500).json({ error: 'Failed to upload file' });
+  }
+});
+
+// List files in bucket
+app.get('/api/files/:bucket', async (req, res) => {
+  try {
+    if (!storage.isConfigured()) {
+      return res.status(503).json({ error: 'Cloud storage not configured' });
+    }
+
+    const { bucket } = req.params;
+    const { folder = '' } = req.query;
+
+    const files = await storage.listFiles(bucket, folder);
+    res.json(files);
+  } catch (error) {
+    console.error('Error listing files:', error);
+    res.status(500).json({ error: 'Failed to list files' });
+  }
+});
+
+// Delete file
+app.delete('/api/files/:bucket/*', async (req, res) => {
+  try {
+    if (!storage.isConfigured()) {
+      return res.status(503).json({ error: 'Cloud storage not configured' });
+    }
+
+    const { bucket } = req.params;
+    const filePath = req.params[0]; // Everything after /files/:bucket/
+
+    await storage.deleteFile(bucket, filePath);
+    res.json({ success: true, message: 'File deleted' });
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    res.status(500).json({ error: 'Failed to delete file' });
+  }
+});
+
+// ==================== AI Processing Endpoints ====================
+
+// Generate value proposition
+app.post('/api/ai/value-proposition', async (req, res) => {
+  try {
+    const { role } = req.body;
+
+    if (!role) {
+      return res.status(400).json({ error: 'Role is required' });
+    }
+
+    if (!ai.isConfigured()) {
+      return res.status(503).json({ 
+        error: 'AI not configured. Set OPENAI_API_KEY environment variable.',
+        fallback: `Scedge adapts to your workflow as a ${role}, optimizing resources and predicting bottlenecks before they happen.`
+      });
+    }
+
+    const result = await ai.generateValueProposition(role);
+    res.json({ result });
+  } catch (error) {
+    console.error('Error generating value proposition:', error);
+    res.status(500).json({ error: 'Failed to generate value proposition' });
+  }
+});
+
+// Analyze content
+app.post('/api/ai/analyze', async (req, res) => {
+  try {
+    const { content, analysisType = 'summary' } = req.body;
+
+    if (!content) {
+      return res.status(400).json({ error: 'Content is required' });
+    }
+
+    if (!ai.isConfigured()) {
+      return res.status(503).json({ error: 'AI not configured. Set OPENAI_API_KEY environment variable.' });
+    }
+
+    const result = await ai.analyzeContent(content, analysisType);
+    res.json({ result, analysisType });
+  } catch (error) {
+    console.error('Error analyzing content:', error);
+    res.status(500).json({ error: 'Failed to analyze content' });
+  }
+});
+
+// Generate insights
+app.post('/api/ai/insights', async (req, res) => {
+  try {
+    const { data, context = '' } = req.body;
+
+    if (!data) {
+      return res.status(400).json({ error: 'Data is required' });
+    }
+
+    if (!ai.isConfigured()) {
+      return res.status(503).json({ error: 'AI not configured. Set OPENAI_API_KEY environment variable.' });
+    }
+
+    const result = await ai.generateInsights(data, context);
+    res.json({ result });
+  } catch (error) {
+    console.error('Error generating insights:', error);
+    res.status(500).json({ error: 'Failed to generate insights' });
+  }
 });
 
 app.listen(PORT, () => {
@@ -273,6 +439,16 @@ app.listen(PORT, () => {
     console.log(`💾 Database: Supabase`);
   } else {
     console.log(`💾 Database: File storage (set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to use Supabase)`);
+  }
+  if (storage.isConfigured()) {
+    console.log(`☁️  Cloud Storage: Supabase Storage`);
+  } else {
+    console.log(`☁️  Cloud Storage: Not configured (set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)`);
+  }
+  if (ai.isConfigured()) {
+    console.log(`🤖 AI Processing: OpenAI`);
+  } else {
+    console.log(`🤖 AI Processing: Not configured (set OPENAI_API_KEY)`);
   }
 });
 
